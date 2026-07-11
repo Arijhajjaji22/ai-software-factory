@@ -57,7 +57,8 @@ app.MapGet("/api/projets/{id}", (Guid id, ProjetStore store) =>
     return projet is null ? Results.NotFound() : Results.Ok(projet);
 });
 // 3. Valider l'étape actuelle et avancer le pipeline
-app.MapPost("/api/projets/{id}/valider", (Guid id, ProjetStore store) =>
+// 3. Valider l'étape actuelle, avancer le pipeline, et déclencher l'agent suivant
+app.MapPost("/api/projets/{id}/valider", async (Guid id, ProjetStore store, IConfiguration config) =>
 {
     var projet = store.Obtenir(id);
     if (projet is null)
@@ -78,8 +79,26 @@ app.MapPost("/api/projets/{id}/valider", (Guid id, ProjetStore store) =>
         _ => projet.EtapeActuelle
     };
 
-    if (projet.EtapeActuelle != EtapePipeline.Termine)
+    // Déclenche automatiquement l'agent correspondant à la nouvelle étape
+    if (projet.EtapeActuelle == EtapePipeline.Architecture)
+    {
+        var kernel = CreerKernel(config);
+        var chatHistory = new ChatHistory(ArchitectePersona.SystemPrompt);
+        chatHistory.AddUserMessage(JsonSerializer.Serialize(projet.ResultatAnalyse));
+
+        var chatService = kernel.GetRequiredService<IChatCompletionService>();
+        var reponse = await chatService.GetChatMessageContentAsync(chatHistory, CreerSettings());
+
+        var jsonBrut = reponse.ToString().Replace("```json", "").Replace("```", "").Trim();
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        projet.ResultatArchitecture = JsonSerializer.Deserialize<ArchitectureResult>(jsonBrut, options);
+
         projet.StatutEtapeActuelle = StatutEtape.EnAttenteDeValidation;
+    }
+    else if (projet.EtapeActuelle != EtapePipeline.Termine)
+    {
+        projet.StatutEtapeActuelle = StatutEtape.EnAttenteDeValidation;
+    }
 
     store.MettreAJour(projet);
 

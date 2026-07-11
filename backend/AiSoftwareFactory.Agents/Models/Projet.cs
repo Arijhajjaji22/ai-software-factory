@@ -24,4 +24,5 @@ public class Projet
     public EtapePipeline EtapeActuelle { get; set; } = EtapePipeline.Analyse;
     public StatutEtape StatutEtapeActuelle { get; set; } = StatutEtape.EnAttenteDeValidation;
     public AnalyseResult? ResultatAnalyse { get; set; }
+    public ArchitectureResult? ResultatArchitecture { get; set; }
 }
