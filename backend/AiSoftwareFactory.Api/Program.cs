@@ -95,6 +95,36 @@ app.MapPost("/api/projets/{id}/valider", async (Guid id, ProjetStore store, ICon
 
         projet.StatutEtapeActuelle = StatutEtape.EnAttenteDeValidation;
     }
+    else if (projet.EtapeActuelle == EtapePipeline.DevBackend)
+    {
+        var kernel = CreerKernel(config);
+        var chatHistory = new ChatHistory(DevBackendPersona.SystemPrompt);
+        chatHistory.AddUserMessage(JsonSerializer.Serialize(projet.ResultatArchitecture));
+
+        var chatService = kernel.GetRequiredService<IChatCompletionService>();
+        var reponse = await chatService.GetChatMessageContentAsync(chatHistory, CreerSettings());
+
+        var jsonBrut = reponse.ToString().Replace("```json", "").Replace("```", "").Trim();
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var resultat = JsonSerializer.Deserialize<DevBackendResult>(jsonBrut, options);
+        projet.ResultatDevBackend = resultat;
+
+        // Écriture réelle des fichiers générés sur le disque
+        var dossierProjet = Path.Combine(app.Environment.ContentRootPath, "..", "GeneratedProjects", projet.Id.ToString());
+        Directory.CreateDirectory(dossierProjet);
+
+        foreach (var fichier in resultat!.Fichiers)
+        {
+            var cheminComplet = Path.Combine(dossierProjet, fichier.CheminRelatif);
+            var dossierFichier = Path.GetDirectoryName(cheminComplet);
+            if (dossierFichier is not null)
+                Directory.CreateDirectory(dossierFichier);
+
+            await File.WriteAllTextAsync(cheminComplet, fichier.Contenu);
+        }
+
+        projet.StatutEtapeActuelle = StatutEtape.EnAttenteDeValidation;
+    }
     else if (projet.EtapeActuelle != EtapePipeline.Termine)
     {
         projet.StatutEtapeActuelle = StatutEtape.EnAttenteDeValidation;

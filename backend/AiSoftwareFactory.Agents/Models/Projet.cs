@@ -25,4 +25,5 @@ public class Projet
     public StatutEtape StatutEtapeActuelle { get; set; } = StatutEtape.EnAttenteDeValidation;
     public AnalyseResult? ResultatAnalyse { get; set; }
     public ArchitectureResult? ResultatArchitecture { get; set; }
+    public DevBackendResult? ResultatDevBackend { get; set; }
 }
