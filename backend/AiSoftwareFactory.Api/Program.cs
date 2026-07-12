@@ -5,24 +5,61 @@ using AiSoftwareFactory.Agents.Personas;
 using AiSoftwareFactory.Agents.Models;
 using AiSoftwareFactory.Agents.Services;
 using System.Text.Json;
-using Microsoft.SemanticKernel.Connectors.Google.Core;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<ProjetStore>();
 
 var app = builder.Build();
 
 // Fonction utilitaire réutilisable : construit le kernel connecté à Gemini
+#pragma warning disable SKEXP0010
 Kernel CreerKernel(IConfiguration config)
 {
-    var apiKey = config["Gemini:ApiKey"];
+    var apiKey = config["Groq:ApiKey"];
     return Kernel.CreateBuilder()
-        .AddGoogleAIGeminiChatCompletion("gemini-2.5-flash-lite", apiKey!)
+        .AddOpenAIChatCompletion(
+            modelId: "openai/gpt-oss-120b",
+            endpoint: new Uri("https://api.groq.com/openai/v1"),
+            apiKey: apiKey!)
         .Build();
 }
-GeminiPromptExecutionSettings CreerSettings() => new()
+#pragma warning restore SKEXP0010
+OpenAIPromptExecutionSettings CreerSettings(int maxTokens = 4096) => new()
 {
-    MaxTokens = 4096
+    MaxTokens = maxTokens
 };
+
+async Task<string> AppelerAgentAvecRetry(IChatCompletionService chatService, ChatHistory chatHistory, PromptExecutionSettings settings)
+{
+    int delaiSecondes = 20;
+
+    for (int tentative = 1; tentative <= 3; tentative++)
+    {
+        try
+        {
+            var reponse = await chatService.GetChatMessageContentAsync(chatHistory, settings);
+            return reponse.ToString() ?? string.Empty;
+        }
+        catch (Microsoft.SemanticKernel.HttpOperationException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            if (tentative == 3)
+                throw;
+
+            await Task.Delay(TimeSpan.FromSeconds(delaiSecondes));
+            delaiSecondes *= 2;
+        }
+    }
+
+    throw new InvalidOperationException("Échec après plusieurs tentatives.");
+}
+string ExtraireJson(string texte)
+{
+    int debut = texte.IndexOf('{');
+    int fin = texte.LastIndexOf('}');
+    if (debut == -1 || fin == -1 || fin < debut)
+        return texte;
+    return texte.Substring(debut, fin - debut + 1);
+}
 // 1. Créer un projet et lancer l'agent Analyste
 app.MapPost("/api/projets", async (IdeeRequest requete, IConfiguration config, ProjetStore store) =>
 {
@@ -32,8 +69,8 @@ app.MapPost("/api/projets", async (IdeeRequest requete, IConfiguration config, P
     chatHistory.AddUserMessage(requete.Idee);
 
     var chatService = kernel.GetRequiredService<IChatCompletionService>();
-    var reponse = await chatService.GetChatMessageContentAsync(chatHistory, CreerSettings());
-    var jsonBrut = reponse.ToString().Replace("```json", "").Replace("```", "").Trim();
+    var reponseTexte = await AppelerAgentAvecRetry(chatService, chatHistory, CreerSettings());
+    var jsonBrut = ExtraireJson(reponseTexte.Replace("```json", "").Replace("```", "").Trim());
     var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
     var resultat = JsonSerializer.Deserialize<AnalyseResult>(jsonBrut, options);
 
@@ -87,9 +124,8 @@ app.MapPost("/api/projets/{id}/valider", async (Guid id, ProjetStore store, ICon
         chatHistory.AddUserMessage(JsonSerializer.Serialize(projet.ResultatAnalyse));
 
         var chatService = kernel.GetRequiredService<IChatCompletionService>();
-        var reponse = await chatService.GetChatMessageContentAsync(chatHistory, CreerSettings());
-
-        var jsonBrut = reponse.ToString().Replace("```json", "").Replace("```", "").Trim();
+        var reponseTexte = await AppelerAgentAvecRetry(chatService, chatHistory, CreerSettings());
+        var jsonBrut = ExtraireJson(reponseTexte.Replace("```json", "").Replace("```", "").Trim());
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         projet.ResultatArchitecture = JsonSerializer.Deserialize<ArchitectureResult>(jsonBrut, options);
 
@@ -97,23 +133,70 @@ app.MapPost("/api/projets/{id}/valider", async (Guid id, ProjetStore store, ICon
     }
     else if (projet.EtapeActuelle == EtapePipeline.DevBackend)
     {
-        var kernel = CreerKernel(config);
-        var chatHistory = new ChatHistory(DevBackendPersona.SystemPrompt);
-        chatHistory.AddUserMessage(JsonSerializer.Serialize(projet.ResultatArchitecture));
+        var fichiersGeneres = new List<FichierGenere>();
 
-        var chatService = kernel.GetRequiredService<IChatCompletionService>();
-        var reponse = await chatService.GetChatMessageContentAsync(chatHistory, CreerSettings());
+        foreach (var entite in projet.ResultatArchitecture!.Entites)
+        {
+            var kernel = CreerKernel(config);
+            var chatHistory = new ChatHistory(DevBackendPersona.SystemPrompt);
+            chatHistory.AddUserMessage(
+                "Génère UNIQUEMENT le modèle et le contrôleur pour cette entité (pas le DbContext) : "
+                + JsonSerializer.Serialize(entite));
 
-        var jsonBrut = reponse.ToString().Replace("```json", "").Replace("```", "").Trim();
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var resultat = JsonSerializer.Deserialize<DevBackendResult>(jsonBrut, options);
-        projet.ResultatDevBackend = resultat;
+            var chatService = kernel.GetRequiredService<IChatCompletionService>();
+            var reponseTexte = await AppelerAgentAvecRetry(chatService, chatHistory, CreerSettings(3000));
+            var jsonBrut = ExtraireJson(reponseTexte.Replace("```json", "").Replace("```", "").Trim());
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var resultatUnEntite = JsonSerializer.Deserialize<DevBackendResult>(jsonBrut, options);
 
-        // Écriture réelle des fichiers générés sur le disque
+            if (resultatUnEntite is not null)
+                fichiersGeneres.AddRange(resultatUnEntite.Fichiers);
+        }
+
+        projet.ResultatDevBackend = new DevBackendResult { Fichiers = fichiersGeneres };
+
         var dossierProjet = Path.Combine(app.Environment.ContentRootPath, "..", "GeneratedProjects", projet.Id.ToString());
         Directory.CreateDirectory(dossierProjet);
 
-        foreach (var fichier in resultat!.Fichiers)
+        foreach (var fichier in fichiersGeneres)
+        {
+            var cheminComplet = Path.Combine(dossierProjet, fichier.CheminRelatif);
+            var dossierFichier = Path.GetDirectoryName(cheminComplet);
+            if (dossierFichier is not null)
+                Directory.CreateDirectory(dossierFichier);
+
+            await File.WriteAllTextAsync(cheminComplet, fichier.Contenu);
+        }
+
+        projet.StatutEtapeActuelle = StatutEtape.EnAttenteDeValidation;
+    }
+    else if (projet.EtapeActuelle == EtapePipeline.DevFrontend)
+    {
+        var fichiersGeneres = new List<FichierGenere>();
+
+        foreach (var entite in projet.ResultatArchitecture!.Entites)
+        {
+            var kernel = CreerKernel(config);
+            var chatHistory = new ChatHistory(DevFrontendPersona.SystemPrompt);
+            chatHistory.AddUserMessage(
+                "Génère le composant liste UNIQUEMENT pour cette entité : " + JsonSerializer.Serialize(entite));
+
+            var chatService = kernel.GetRequiredService<IChatCompletionService>();
+            var reponseTexte = await AppelerAgentAvecRetry(chatService, chatHistory, CreerSettings(3000));
+            var jsonBrut = ExtraireJson(reponseTexte.Replace("```json", "").Replace("```", "").Trim());
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var resultatUnEntite = JsonSerializer.Deserialize<DevBackendResult>(jsonBrut, options);
+
+            if (resultatUnEntite is not null)
+                fichiersGeneres.AddRange(resultatUnEntite.Fichiers);
+        }
+
+        projet.ResultatDevFrontend = new DevBackendResult { Fichiers = fichiersGeneres };
+
+        var dossierProjet = Path.Combine(app.Environment.ContentRootPath, "..", "GeneratedProjects", projet.Id.ToString(), "frontend");
+        Directory.CreateDirectory(dossierProjet);
+
+        foreach (var fichier in fichiersGeneres)
         {
             var cheminComplet = Path.Combine(dossierProjet, fichier.CheminRelatif);
             var dossierFichier = Path.GetDirectoryName(cheminComplet);
@@ -151,11 +234,10 @@ app.MapPost("/api/projets/{id}/rejeter", async (Guid id, RejetRequest requete, P
     chatHistory.AddUserMessage(
         $"Ce résultat ne convient pas. Voici le retour de l'utilisateur : \"{requete.Commentaire}\". " +
         "Génère une nouvelle version qui tient compte de ce retour, en respectant le même format JSON.");
-
+    
     var chatService = kernel.GetRequiredService<IChatCompletionService>();
-    var reponse = await chatService.GetChatMessageContentAsync(chatHistory);
-
-    var jsonBrut = reponse.ToString().Replace("```json", "").Replace("```", "").Trim();
+    var reponseTexte = await AppelerAgentAvecRetry(chatService, chatHistory, CreerSettings(5000));
+    var jsonBrut = ExtraireJson(reponseTexte.Replace("```json", "").Replace("```", "").Trim());
     var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
     projet.ResultatAnalyse = JsonSerializer.Deserialize<AnalyseResult>(jsonBrut, options);
     projet.StatutEtapeActuelle = StatutEtape.EnAttenteDeValidation;

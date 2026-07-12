@@ -26,4 +26,5 @@ public class Projet
     public AnalyseResult? ResultatAnalyse { get; set; }
     public ArchitectureResult? ResultatArchitecture { get; set; }
     public DevBackendResult? ResultatDevBackend { get; set; }
+    public DevBackendResult? ResultatDevFrontend { get; set; }
 }
