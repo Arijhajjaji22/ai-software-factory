@@ -260,35 +260,6 @@ ai-software-factory/
 
 ---
 
-## 🐛 Défis techniques rencontrés
-
-Quelques problèmes concrets rencontrés et résolus pendant le développement — utile pour comprendre les choix d'architecture :
-
-- **Troncature JSON** : avec un grand nombre d'entités, les réponses du LLM dépassaient la limite de tokens configurée, cassant le parsing. → Augmentation de `MaxTokens`, gestion d'erreur *par entité* pour isoler les échecs sans faire planter tout le pipeline.
-- **Rate-limiting Groq (HTTP 429)** : quota journalier du tier gratuit. → Retry avec backoff exponentiel.
-- **Cohérence d'état** : un crash en plein milieu d'une transition d'étape pouvait laisser un projet bloqué (ni validé, ni en attente).
-- **Restrictions de région Azure for Students** : certaines régions Azure sont indisponibles selon le compte, sans liste claire — résolu par test itératif et vérification via `az policy`.
-- **Authentification OIDC GitHub → Azure** : format de `subject claim` non standard observé sur ce compte GitHub, nécessitant une Federated Credential adaptée en plus de la credential standard.
-
-### Limites connues (non résolues, hors scope actuel)
-
-- **Pas d'authentification / multi-utilisateur** : tous les projets créés sont visibles par tous les visiteurs de l'instance déployée — acceptable pour une démo portfolio, à corriger avant tout usage réel (isolation par utilisateur, ou a minima par session anonyme).
-- **Pas de vérification de compilation automatique** du code backend généré.
-- **Templates Angular inline** : les composants générés utilisent `template: \`...\`` plutôt que des fichiers `.html` séparés.
-
----
-
-## 🗺 Roadmap / améliorations possibles
-
-- [ ] Authentification utilisateur (isolation des projets par compte)
-- [ ] Vérification automatique de compilation du code généré (`dotnet build` en sandbox)
-- [ ] Tests unitaires sur le parsing des sorties IA et la logique d'orchestration
-- [ ] Génération de composants Angular avec fichiers séparés (`.ts` / `.html` / `.scss`)
-- [ ] Diagramme ERD généré visuellement à partir de la sortie de l'Architecte
-- [ ] Nom de domaine personnalisé + certificat SSL
-
----
-
 ## 📄 Licence
 
 Projet personnel à but pédagogique et de portfolio.
