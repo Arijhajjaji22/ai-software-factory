@@ -4,15 +4,20 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'frontend/**'
-      - '.github/workflows/deploy-frontend.yml'
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
 
 env:
   ACR_NAME: aisfacrhp2026
-  IMAGE_NAME: aisf-frontend
+  IMAGE_NAME: aisf-api
   RESOURCE_GROUP: rg-aisf-france
-  CONTAINER_APP: aisf-frontend-app
+  CONTAINER_APP: aisf-api-app
+
 
 jobs:
   build-and-deploy:

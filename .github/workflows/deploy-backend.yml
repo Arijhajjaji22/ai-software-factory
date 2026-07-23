@@ -1,4 +1,4 @@
-name: Déploiement Backend
+name: Déplniement Backend
 
 on:
   push:
@@ -7,6 +7,10 @@ on:
       - 'backend/**'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
 
 env:
   ACR_NAME: aisfacrhp2026
