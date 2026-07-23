@@ -1,0 +1,22 @@
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <span class="logo">AI Software Factory</span>
+    <button class="btn-new" (click)="nouveauProjet()">+ Nouveau projet</button>
+  </div>
+
+  <div class="sidebar-list">
+    @if (projets.length === 0) {
+    <p class="empty">Aucun projet pour l'instant.</p>
+    }
+    @for (p of projets; track p.id) {
+    <a class="projet-item"
+       [routerLink]="['/projets', p.id]"
+       routerLinkActive="active">
+      <span class="projet-idee">{{ p.ideeMetier }}</span>
+      <span class="projet-etape" [class.done]="p.etapeActuelle === 5">
+        {{ etapeLabel(p.etapeActuelle) }}
+      </span>
+    </a>
+    }
+  </div>
+</aside>

@@ -1,0 +1,95 @@
+.sidebar {
+  width: 280px;
+  height: 100vh;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 14px;
+}
+
+.btn-new {
+  width: 100%;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
+
+  &:hover {
+    background: #2E4AE0;
+  }
+}
+
+.sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.empty {
+  color: var(--ink-muted);
+  font-size: 13px;
+  padding: 12px;
+}
+
+.projet-item {
+  display: block;
+  padding: 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--ink);
+  margin-bottom: 4px;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--bg);
+  }
+
+  &.active {
+    background: var(--accent-soft);
+  }
+}
+
+.projet-idee {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.projet-etape {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  background: var(--bg);
+  padding: 3px 8px;
+  border-radius: 999px;
+
+  &.done {
+    color: var(--success);
+    background: var(--success-soft);
+  }
+}

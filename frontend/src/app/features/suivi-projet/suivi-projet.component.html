@@ -1,0 +1,100 @@
+@if (chargement && !projet) {
+<div class="page"><p class="loading">Chargement du projet...</p></div>
+}
+
+@if (erreur && !projet) {
+<div class="page"><p class="erreur">{{ erreur }}</p></div>
+}
+
+@if (projet) {
+<div class="page">
+  <div class="container">
+
+    @if (erreur) {
+    <p class="erreur" style="margin-bottom: 20px;">{{ erreur }}</p>
+    }
+
+    <header class="header">
+      <span class="eyebrow">Projet en cours</span>
+      <h1>{{ projet.ideeMetier }}</h1>
+    </header>
+
+    <!-- Barre d'étapes du pipeline -->
+    <div class="stepper">
+      @for (etape of etapes; track etape; let i = $index) {
+      <div class="step"
+           [class.done]="i < projet.etapeActuelle"
+           [class.active]="i === projet.etapeActuelle">
+        <div class="step-dot">{{ i + 1 }}</div>
+        <span class="step-label">{{ etape }}</span>
+      </div>
+      @if (i < etapes.length - 1) { <div class="step-line" [class.done]="i < projet.etapeActuelle"></div> }
+      }
+    </div>
+
+    <div class="status-bar">
+      <span class="badge" [class.badge-success]="projet.statutEtapeActuelle === 1">
+        {{ statutLabel }}
+      </span>
+
+      @if (projet.etapeActuelle !== 5) {
+      <button class="btn-primary" (click)="valider()" [disabled]="chargement">
+        @if (chargement) { <span class="spinner"></span> Traitement... } @else { Valider cette étape }
+      </button>
+      } @else {
+      <span class="badge badge-success">🎉 Projet terminé</span>
+      <a [href]="projetsService.telechargerUrl(projet.id)" class="btn-primary" style="text-decoration:none; margin-left:12px;">
+        ⬇ Télécharger le projet (.zip)
+      </a>
+      }
+    </div>
+
+    @if (projet.etapeActuelle === 0 && projet.statutEtapeActuelle === 0) {
+    <div class="reject-zone">
+      @if (!afficherFormRejet) {
+      <button (click)="afficherFormRejet = true" class="btn-secondary">Rejeter et régénérer</button>
+      } @else {
+      <textarea [(ngModel)]="commentaireRejet" placeholder="Qu'est-ce qui ne va pas ?" rows="3"></textarea>
+      <div class="reject-actions">
+        <button (click)="rejeter()" [disabled]="chargement" class="btn-primary">Confirmer le rejet</button>
+        <button (click)="afficherFormRejet = false" class="btn-secondary">Annuler</button>
+      </div>
+      }
+    </div>
+    }
+
+    @if (projet.resultatAnalyse) {
+    <section class="result-card">
+      <h2>Analyse</h2>
+      <pre>{{ projet.resultatAnalyse | json }}</pre>
+    </section>
+    }
+    @if (projet.resultatArchitecture) {
+    <section class="result-card">
+      <h2>Architecture</h2>
+      <pre>{{ projet.resultatArchitecture | json }}</pre>
+    </section>
+    }
+    @if (projet.resultatDevBackend) {
+    <section class="result-card">
+      <h2>Backend généré</h2>
+      <pre>{{ projet.resultatDevBackend | json }}</pre>
+    </section>
+    }
+    @if (projet.resultatDevFrontend) {
+    <section class="result-card">
+      <h2>Frontend généré</h2>
+      <pre>{{ projet.resultatDevFrontend | json }}</pre>
+    </section>
+    }
+    @if (projet.resultatDevOps) {
+    <section class="result-card">
+      <h2>DevOps généré</h2>
+      <pre>{{ projet.resultatDevOps | json }}</pre>
+    </section>
+    }
+
+
+  </div>
+</div>
+}

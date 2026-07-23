@@ -1,27 +1,52 @@
-﻿using AiSoftwareFactory.Agents.Models;
-using System.Collections.Concurrent;
+﻿using Microsoft.EntityFrameworkCore;
+using AiSoftwareFactory.Agents.Models;
+using AiSoftwareFactory.Agents.Data;
 
 namespace AiSoftwareFactory.Agents.Services;
 
 public class ProjetStore
 {
-    private readonly ConcurrentDictionary<Guid, Projet> _projets = new();
+    private readonly AppDbContextPlateforme _db;
 
-    public Projet Ajouter(Projet projet)
+    public ProjetStore(AppDbContextPlateforme db)
     {
-        _projets[projet.Id] = projet;
-        return projet;
+        _db = db;
     }
 
-    public Projet? Obtenir(Guid id)
+    public async Task AjouterAsync(Projet projet)
     {
-        _projets.TryGetValue(id, out var projet);
-        return projet;
+        _db.Projets.Add(projet);
+        await _db.SaveChangesAsync();
     }
 
-    public bool Mettre​AJour(Projet projet)
+    public async Task<Projet?> ObtenirAsync(Guid id)
     {
-        _projets[projet.Id] = projet;
-        return true;
+        return await _db.Projets
+            .Include(p => p.Historique)
+            .FirstOrDefaultAsync(p => p.Id == id);
+    }
+
+    public async Task MettreAJourAsync(Projet projet)
+    {
+        _db.Projets.Update(projet);
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task AjouterHistoriqueAsync(Guid projetId, EtapePipeline etape, string action, string? commentaire = null)
+    {
+        _db.HistoriqueValidations.Add(new HistoriqueValidation
+        {
+            ProjetId = projetId,
+            Etape = etape,
+            Action = action,
+            Commentaire = commentaire
+        });
+        await _db.SaveChangesAsync();
+    }
+    public async Task<List<Projet>> ListerAsync()
+    {
+        return await _db.Projets
+            .OrderByDescending(p => p.DateCreation)
+            .ToListAsync();
     }
 }

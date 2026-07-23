@@ -1,0 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #F7F8FA;
+  --surface: #FFFFFF;
+  --ink: #14181F;
+  --ink-muted: #5B6472;
+  --border: #E4E7EC;
+  --accent: #3B5BFF;
+  --accent-soft: #EEF1FF;
+  --success: #1E9E6B;
+  --success-soft: #E8F7EF;
+  --warning: #C9821B;
+  --warning-soft: #FDF3E3;
+  --danger: #D64545;
+  --danger-soft: #FCEAEA;
+  --radius: 10px;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+button {
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}

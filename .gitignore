@@ -14,3 +14,11 @@ appsettings.Development.json
 # IDE
 .vs/
 .vscode/
+# Généré par les agents (pas du code source de la plateforme)
+backend/GeneratedProjects/
+
+# Logs
+*.log
+
+# Angular build
+.angular/

@@ -1,0 +1,27 @@
+<div class="page">
+  <div class="card">
+    <span class="eyebrow">AI Software Factory</span>
+    <h1>Décrivez votre idée</h1>
+    <p class="subtitle">Une phrase suffit — l'IA se charge d'en faire une application complète.</p>
+
+    <form (ngSubmit)="onSubmit()">
+      <textarea [(ngModel)]="idee"
+                name="idee"
+                rows="6"
+                placeholder="Ex. : Une application pour gérer une salle de sport, avec inscriptions aux cours et suivi des paiements..."
+                [disabled]="enCours"></textarea>
+
+      <button type="submit" class="btn-primary" [disabled]="enCours || !idee.trim()">
+        @if (enCours) {
+        <span class="spinner"></span> Création en cours...
+        } @else {
+        Créer le projet →
+        }
+      </button>
+
+      @if (erreur) {
+      <p class="erreur">{{ erreur }}</p>
+      }
+    </form>
+  </div>
+</div>
